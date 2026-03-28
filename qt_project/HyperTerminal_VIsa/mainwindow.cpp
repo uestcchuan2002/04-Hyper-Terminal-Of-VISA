@@ -35,7 +35,10 @@ MainWindow::MainWindow(QWidget *parent)
       btnExit(nullptr),
       defaultRM(VI_NULL),
       deviceSession(VI_NULL),
-      isConnected(false)
+      isConnected(false),
+      rfDefaultRM(VI_NULL),
+      rfDeviceSession(VI_NULL),
+      rfIsConnected(false)
 {
     initUi();
 }
@@ -50,11 +53,11 @@ void MainWindow::initUi()
     QWidget *central = new QWidget(this);
     setCentralWidget(central);
 
-    setWindowTitle("DemoForDG");
-    resize(780, 360);
+    setWindowTitle("Instrument Control");
+    resize(1000, 500);
 
-    QGroupBox *groupComm = new QGroupBox(this);
-    QGroupBox *groupBtns = new QGroupBox(this);
+    // ================= 左侧：信号发生器 =================
+    QGroupBox *groupSig = new QGroupBox("Signal Generator", this);
 
     QLabel *labelAddress = new QLabel("Address", this);
     QLabel *labelCommand = new QLabel("Command", this);
@@ -88,47 +91,136 @@ void MainWindow::initUi()
     btnRead->setEnabled(false);
     btnDownloadWave->setEnabled(false);
 
-    QGridLayout *grid = new QGridLayout(groupComm);
-    grid->addWidget(labelAddress, 0, 0);
-    grid->addWidget(editAddress, 0, 1, 1, 3);
+    QGridLayout *gridSig = new QGridLayout(groupSig);
 
-    grid->addWidget(labelCommand, 1, 0);
-    grid->addWidget(editCommand, 1, 1, 1, 3);
+    gridSig->addWidget(labelAddress, 0, 0);
+    gridSig->addWidget(editAddress, 0, 1, 1, 3);
 
-    grid->addWidget(labelFreq,   2, 0);
-    grid->addWidget(editFreq,    2, 1);
-    grid->addWidget(labelAmp,    2, 2);
-    grid->addWidget(editAmp,     2, 3);
+    gridSig->addWidget(labelCommand, 1, 0);
+    gridSig->addWidget(editCommand, 1, 1, 1, 3);
 
-    grid->addWidget(labelOffset, 3, 0);
-    grid->addWidget(editOffset,  3, 1);
+    gridSig->addWidget(labelFreq,   2, 0);
+    gridSig->addWidget(editFreq,    2, 1);
+    gridSig->addWidget(labelAmp,    2, 2);
+    gridSig->addWidget(editAmp,     2, 3);
 
-    grid->addWidget(labelReturn, 4, 0);
-    grid->addWidget(textReturn,  4, 1, 1, 3);
+    gridSig->addWidget(labelOffset, 3, 0);
+    gridSig->addWidget(editOffset,  3, 1);
 
-    grid->setColumnStretch(1, 1);
-    grid->setColumnStretch(3, 1);
-    grid->setRowStretch(4, 1);
+    gridSig->addWidget(labelReturn, 4, 0);
+    gridSig->addWidget(textReturn,  4, 1, 1, 3);
 
-    QVBoxLayout *btnLayout = new QVBoxLayout(groupBtns);
-    btnLayout->addWidget(btnConnect);
-    btnLayout->addWidget(btnWrite);
-    btnLayout->addWidget(btnRead);
-    btnLayout->addWidget(btnLoadFile);
-    btnLayout->addWidget(btnDownloadWave);
-    btnLayout->addWidget(btnExit);
-    btnLayout->addStretch();
+    // 按钮区（放在左侧内部）
+    QHBoxLayout *sigBtnLayout = new QHBoxLayout;
+    sigBtnLayout->addWidget(btnConnect);
+    sigBtnLayout->addWidget(btnWrite);
+    sigBtnLayout->addWidget(btnRead);
+    sigBtnLayout->addWidget(btnLoadFile);
+    sigBtnLayout->addWidget(btnDownloadWave);
+    sigBtnLayout->addWidget(btnExit);
 
+    gridSig->addLayout(sigBtnLayout, 5, 0, 1, 4);
+
+    gridSig->setColumnStretch(1, 1);
+    gridSig->setColumnStretch(3, 1);
+    gridSig->setRowStretch(4, 1);
+
+    // ================= 右侧：射频信号源 =================
+    QGroupBox *groupRF = new QGroupBox("RF Generator", this);
+
+    QLabel *rfLabelAddr   = new QLabel("Address", this);
+    QLabel *rfLabelCommand= new QLabel("Command", this);   // ⭐ 新增
+    QLabel *rfLabelFreq   = new QLabel("Freq (Hz)", this);
+    QLabel *rfLabelPower  = new QLabel("Power (dBm)", this);
+    QLabel *rfLabelReturn = new QLabel("Return", this);
+
+    rfEditAddress = new QLineEdit(this);
+    rfEditCommand = new QLineEdit(this);   // ⭐ 新增
+    rfEditFreq    = new QLineEdit(this);
+    rfEditPower   = new QLineEdit(this);
+    rfTextReturn  = new QTextEdit(this);
+
+    rfEditAddress->setText("TCPIP0::192.168.2.144::INSTR");
+    rfEditCommand->setText("*IDN?");       // ⭐ 默认指令
+    rfEditFreq->setText("1000000000");
+    rfEditPower->setText("-20");
+
+    rfTextReturn->setReadOnly(true);
+
+    rfBtnConnect   = new QPushButton("Connect", this);
+    rfBtnWrite     = new QPushButton("Write", this);   // ⭐ 新增
+    rfBtnRead      = new QPushButton("Read", this);    // ⭐ 新增
+    rfBtnOutputOn  = new QPushButton("Output ON", this);
+    rfBtnOutputOff = new QPushButton("Output OFF", this);
+    rfBtnConfig = new QPushButton("Config RF", this);
+
+
+    rfBtnWrite->setEnabled(false);
+    rfBtnRead->setEnabled(false);
+    rfBtnOutputOn->setEnabled(false);
+    rfBtnOutputOff->setEnabled(false);
+    rfBtnConfig->setEnabled(false);
+    QGridLayout *rfGrid = new QGridLayout(groupRF);
+
+    // ===== 地址 =====
+    rfGrid->addWidget(rfLabelAddr,   0, 0);
+    rfGrid->addWidget(rfEditAddress,0, 1, 1, 2);
+    rfGrid->addWidget(rfBtnConnect, 0, 3);
+
+    // ===== 指令 =====
+    rfGrid->addWidget(rfLabelCommand, 1, 0);
+    rfGrid->addWidget(rfEditCommand,  1, 1, 1, 3);
+
+    // ===== 频率/功率 =====
+    rfGrid->addWidget(rfLabelFreq,  2, 0);
+    rfGrid->addWidget(rfEditFreq,   2, 1);
+
+    rfGrid->addWidget(rfLabelPower, 2, 2);
+    rfGrid->addWidget(rfEditPower,  2, 3);
+
+    // ===== 返回框 =====
+    rfGrid->addWidget(rfLabelReturn, 3, 0);
+    rfGrid->addWidget(rfTextReturn,  3, 1, 1, 3);
+
+    // ===== 按钮区（SCPI + 输出控制）=====
+    QHBoxLayout *rfBtnLayout = new QHBoxLayout;
+    rfBtnLayout->addWidget(rfBtnWrite);      // ⭐ 新增
+    rfBtnLayout->addWidget(rfBtnRead);       // ⭐ 新增
+    //rfBtnLayout->addSpacing(20);             // 分隔
+    rfBtnLayout->addWidget(rfBtnOutputOn);
+    rfBtnLayout->addWidget(rfBtnOutputOff);
+    //rfBtnLayout->addSpacing(20);
+    rfBtnLayout->addWidget(rfBtnConfig);
+    rfGrid->addLayout(rfBtnLayout, 4, 0, 1, 4);
+
+    // 拉伸
+    rfGrid->setColumnStretch(1, 1);
+    rfGrid->setColumnStretch(3, 1);
+    rfGrid->setRowStretch(3, 1);
+
+    // ================= 总布局（左右结构）=================
     QHBoxLayout *mainLayout = new QHBoxLayout(central);
-    mainLayout->addWidget(groupComm, 1);
-    mainLayout->addWidget(groupBtns);
+    mainLayout->addWidget(groupSig, 1);
+    mainLayout->addWidget(groupRF, 1);
 
+    // ================= 原有信号源信号槽 =================
     connect(btnConnect, &QPushButton::clicked, this, &MainWindow::onConnectClicked);
     connect(btnWrite, &QPushButton::clicked, this, &MainWindow::onWriteClicked);
     connect(btnRead, &QPushButton::clicked, this, &MainWindow::onReadClicked);
     connect(btnLoadFile, &QPushButton::clicked, this, &MainWindow::onLoadFileClicked);
     connect(btnDownloadWave, &QPushButton::clicked, this, &MainWindow::onDownloadWaveClicked);
     connect(btnExit, &QPushButton::clicked, this, &MainWindow::onExitClicked);
+
+    // ⚠ RF 暂时不绑定逻辑（你要求的）
+    connect(rfBtnConnect, &QPushButton::clicked,this, &MainWindow::onRFConnectClicked);
+    connect(rfBtnWrite, &QPushButton::clicked,this, &MainWindow::onRFWriteClicked);
+    connect(rfBtnRead, &QPushButton::clicked,this, &MainWindow::onRFReadClicked);
+    connect(rfBtnOutputOn, &QPushButton::clicked,
+            this, &MainWindow::onRFOutputOnClicked);
+    connect(rfBtnOutputOff, &QPushButton::clicked,
+            this, &MainWindow::onRFOutputOffClicked);
+    connect(rfBtnConfig, &QPushButton::clicked,
+            this, &MainWindow::onRFConfigClicked);
 }
 
 void MainWindow::appendMessage(const QString &msg)
@@ -456,4 +548,233 @@ void MainWindow::onDownloadWaveClicked()
                   .arg(freqHz)
                   .arg(vpp)
                   .arg(offset));
+}
+
+void MainWindow::closeVisaRF()
+{
+    if (rfDeviceSession != VI_NULL) {
+        viClose(rfDeviceSession);
+        rfDeviceSession = VI_NULL;
+    }
+
+    if (rfDefaultRM != VI_NULL) {
+        viClose(rfDefaultRM);
+        rfDefaultRM = VI_NULL;
+    }
+
+    rfIsConnected = false;
+
+    rfBtnWrite->setEnabled(false);
+    rfBtnRead->setEnabled(false);
+    rfBtnConnect->setText("Connect");
+}
+
+void MainWindow::appendRFMessage(const QString &msg)
+{
+    QString time = QDateTime::currentDateTime().toString("HH:mm:ss");
+    rfTextReturn->append(QString("[%1] %2").arg(time, msg));
+}
+
+void MainWindow::onRFConnectClicked()
+{
+    if (rfIsConnected) {
+        appendRFMessage("Disconnect RF device.");
+        closeVisaRF();
+        return;
+    }
+
+    QString ip = rfEditAddress->text().trimmed();
+    if (ip.isEmpty()) {
+        QMessageBox::warning(this, "Warning", "RF IP is empty.");
+        return;
+    }
+
+    // ⚠ RF 一般用 TCPIP0::IP::INSTR 格式
+    QString address = rfEditAddress->text().trimmed();
+
+    ViStatus status = viOpenDefaultRM(&rfDefaultRM);
+    if (status < VI_SUCCESS) {
+        appendRFMessage(QString("viOpenDefaultRM failed: %1").arg(status));
+        closeVisaRF();
+        return;
+    }
+
+    QByteArray addr = address.toLocal8Bit();
+
+    status = viOpen(rfDefaultRM,
+                    (ViRsrc)addr.data(),
+                    VI_NULL,
+                    VI_NULL,
+                    &rfDeviceSession);
+
+    if (status < VI_SUCCESS) {
+        appendRFMessage(QString("viOpen failed: %1").arg(status));
+        closeVisaRF();
+        return;
+    }
+
+    viSetAttribute(rfDeviceSession, VI_ATTR_TMO_VALUE, 3000);
+
+    rfIsConnected = true;
+
+    rfBtnWrite->setEnabled(true);
+    rfBtnRead->setEnabled(true);
+    rfBtnOutputOn->setEnabled(true);
+    rfBtnOutputOff->setEnabled(true);
+    rfBtnConfig->setEnabled(true);
+    rfBtnConnect->setText("Disconnect");
+
+    appendRFMessage("RF Connect success.");
+}
+
+bool MainWindow::sendScpiRF(const QString &cmd)
+{
+    if (!rfIsConnected || rfDeviceSession == VI_NULL) {
+        appendRFMessage("RF device not connected.");
+        return false;
+    }
+
+    QByteArray data = cmd.toLocal8Bit();
+
+    // SCPI 必须以 \n 结尾
+    if (!data.endsWith('\n')) {
+        data.append('\n');
+    }
+
+    ViUInt32 writeCount = 0;
+
+    ViStatus status = viWrite(rfDeviceSession,
+                              (ViBuf)data.data(),
+                              (ViUInt32)data.size(),
+                              &writeCount);
+
+    if (status < VI_SUCCESS) {
+        appendRFMessage(QString("RF SCPI send failed: %1").arg(status));
+        appendRFMessage("CMD: " + cmd);
+        return false;
+    }
+
+    appendRFMessage("RF >> " + cmd);
+    return true;
+}
+
+void MainWindow::onRFWriteClicked()
+{
+    QString cmd = rfEditCommand->text().trimmed();
+
+    if (cmd.isEmpty()) {
+        appendRFMessage("Command is empty.");
+        return;
+    }
+
+    sendScpiRF(cmd);
+}
+
+void MainWindow::onRFReadClicked()
+{
+    if (!rfIsConnected || rfDeviceSession == VI_NULL) {
+        appendRFMessage("RF device not connected.");
+        return;
+    }
+
+    unsigned char buffer[2048] = {0};
+    ViUInt32 readCount = 0;
+
+    ViStatus status = viRead(rfDeviceSession,
+                             buffer,
+                             sizeof(buffer) - 1,
+                             &readCount);
+
+    if (status < VI_SUCCESS) {
+        if (status == VI_ERROR_TMO) {
+            appendRFMessage("RF Read timeout.");
+        } else {
+            appendRFMessage(QString("RF Read failed: %1").arg(status));
+        }
+        return;
+    }
+
+    buffer[readCount] = '\0';
+
+    QString reply = QString::fromLatin1(
+                        reinterpret_cast<const char*>(buffer))
+                        .trimmed();
+
+    appendRFMessage("RF << " + reply);
+}
+
+
+void MainWindow::onRFOutputOnClicked()
+{
+    if (!rfIsConnected) {
+        appendRFMessage("RF device not connected.");
+        return;
+    }
+
+    if (!sendScpiRF(":OUTP ON")) {
+        appendRFMessage("RF Output ON failed.");
+        return;
+    }
+
+    appendRFMessage("RF Output ON.");
+}
+
+void MainWindow::onRFOutputOffClicked()
+{
+    if (!rfIsConnected) {
+        appendRFMessage("RF device not connected.");
+        return;
+    }
+
+    if (!sendScpiRF(":OUTP OFF")) {
+        appendRFMessage("RF Output OFF failed.");
+        return;
+    }
+
+    appendRFMessage("RF Output OFF.");
+}
+
+void MainWindow::onRFConfigClicked()
+{
+    if (!rfIsConnected) {
+        appendRFMessage("RF device not connected.");
+        return;
+    }
+
+    bool okFreq = false;
+    bool okPower = false;
+
+    double freq = rfEditFreq->text().trimmed().toDouble(&okFreq);
+    double power = rfEditPower->text().trimmed().toDouble(&okPower);
+
+    if (!okFreq || freq <= 0) {
+        appendRFMessage("Invalid frequency.");
+        return;
+    }
+
+    if (!okPower) {
+        appendRFMessage("Invalid power.");
+        return;
+    }
+
+    appendRFMessage("Start RF configuration...");
+
+    // 1️⃣ 查询设备
+    sendScpiRF("*IDN?");
+    onRFReadClicked();
+
+    // 2️⃣ 恢复出厂设置
+    if (!sendScpiRF(":SYST:PRES:TYPE FAC")) return;
+    if (!sendScpiRF(":SYST:PRES")) return;
+
+    // 3️⃣ 设置频率（Hz）
+    if (!sendScpiRF(QString(":FREQ %1").arg(freq, 0, 'f', 0))) return;
+
+    // 4️⃣ 设置功率（dBm）
+    if (!sendScpiRF(QString(":LEV %1").arg(power, 0, 'f', 2))) return;
+
+    // 5️⃣ 打开输出
+    if (!sendScpiRF(":OUTP ON")) return;
+
+    appendRFMessage("RF configuration done.");
 }

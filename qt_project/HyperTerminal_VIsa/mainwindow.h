@@ -24,6 +24,12 @@ private slots:
     void onExitClicked();
     void onLoadFileClicked();
     void onDownloadWaveClicked();
+    void closeVisaRF();
+    void onRFWriteClicked();
+    void onRFReadClicked();
+    void onRFOutputOnClicked();
+    void onRFOutputOffClicked();
+    void onRFConfigClicked();
 
 private:
     void initUi();
@@ -35,6 +41,9 @@ private:
     QVector<int> convertToDac14(const QVector<double> &samples);
     bool downloadArbDac(const QVector<int> &points);
     bool outputUserWaveform(int channel, double freqHz, double vpp, double offset);
+    void appendRFMessage(const QString &msg);
+    void onRFConnectClicked();
+    bool sendScpiRF(const QString &cmd);
 
 private:
     QLineEdit *editAddress;
@@ -48,16 +57,37 @@ private:
     QPushButton *btnConnect;
     QPushButton *btnWrite;
     QPushButton *btnRead;
-    QPushButton *btnExit;
+
 
     QPushButton *btnLoadFile;
     QPushButton *btnDownloadWave;
+    QPushButton *btnExit;
 
     ViSession defaultRM;
     ViSession deviceSession;
     bool isConnected;
 
     QVector<double> m_samples;
+
+    // ===== 射频信号源控件 =====
+    QLineEdit *rfEditAddress;
+    QLineEdit *rfEditFreq;
+    QLineEdit *rfEditPower;
+
+    QPushButton *rfBtnConnect;
+    QPushButton *rfBtnOutputOn;
+    QPushButton *rfBtnOutputOff;
+    QTextEdit *rfTextReturn;
+
+    QLineEdit *rfEditCommand;
+    QPushButton *rfBtnWrite;
+    QPushButton *rfBtnRead;
+    QPushButton *rfBtnConfig;
+
+    // ===== RF VISA 连接 =====
+    ViSession rfDefaultRM;
+    ViSession rfDeviceSession;
+    bool rfIsConnected;
 };
 
 #endif // MAINWINDOW_H
