@@ -9,6 +9,13 @@ class QPushButton;
 
 #include "visa.h"
 
+enum LogType
+{
+    LOG_SIG,
+    LOG_RF,
+    LOG_ERROR
+};
+
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -33,7 +40,7 @@ private slots:
 
 private:
     void initUi();
-    void appendMessage(const QString &msg);
+
     void closeVisa();
 
     bool sendScpi(const QString &cmd);
@@ -41,9 +48,12 @@ private:
     QVector<int> convertToDac14(const QVector<double> &samples);
     bool downloadArbDac(const QVector<int> &points);
     bool outputUserWaveform(int channel, double freqHz, double vpp, double offset);
-    void appendRFMessage(const QString &msg);
+
     void onRFConnectClicked();
     bool sendScpiRF(const QString &cmd);
+    // 日志接口
+    void appendLog(const QString &msg, const QColor &color);
+    void log(LogType type, const QString &msg);
 
 private:
     QLineEdit *editAddress;
@@ -53,7 +63,7 @@ private:
     QLineEdit *editAmp;
     QLineEdit *editOffset;
 
-    QTextEdit *textReturn;
+
     QPushButton *btnConnect;
     QPushButton *btnWrite;
     QPushButton *btnRead;
@@ -77,7 +87,7 @@ private:
     QPushButton *rfBtnConnect;
     QPushButton *rfBtnOutputOn;
     QPushButton *rfBtnOutputOff;
-    QTextEdit *rfTextReturn;
+
 
     QLineEdit *rfEditCommand;
     QPushButton *rfBtnWrite;
@@ -88,6 +98,9 @@ private:
     ViSession rfDefaultRM;
     ViSession rfDeviceSession;
     bool rfIsConnected;
+
+    // ===== 日志 =====
+    QTextEdit *logViewer;
 };
 
 #endif // MAINWINDOW_H
