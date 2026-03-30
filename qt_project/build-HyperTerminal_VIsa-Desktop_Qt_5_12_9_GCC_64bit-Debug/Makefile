@@ -53,10 +53,18 @@ OBJECTS_DIR   = ./
 ####### Files
 
 SOURCES       = ../HyperTerminal_VIsa/main.cpp \
-		../HyperTerminal_VIsa/mainwindow.cpp moc_mainwindow.cpp
+		../HyperTerminal_VIsa/mainwindow.cpp \
+		../HyperTerminal_VIsa/rfworker.cpp \
+		../HyperTerminal_VIsa/sigworker.cpp moc_mainwindow.cpp \
+		moc_rfworker.cpp \
+		moc_sigworker.cpp
 OBJECTS       = main.o \
 		mainwindow.o \
-		moc_mainwindow.o
+		rfworker.o \
+		sigworker.o \
+		moc_mainwindow.o \
+		moc_rfworker.o \
+		moc_sigworker.o
 DIST          = /opt/Qt5.12.9/5.12.9/gcc_64/mkspecs/features/spec_pre.prf \
 		/opt/Qt5.12.9/5.12.9/gcc_64/mkspecs/common/unix.conf \
 		/opt/Qt5.12.9/5.12.9/gcc_64/mkspecs/common/linux.conf \
@@ -231,6 +239,7 @@ DIST          = /opt/Qt5.12.9/5.12.9/gcc_64/mkspecs/features/spec_pre.prf \
 		/opt/Qt5.12.9/5.12.9/gcc_64/mkspecs/features/qt_config.prf \
 		/opt/Qt5.12.9/5.12.9/gcc_64/mkspecs/linux-g++/qmake.conf \
 		/opt/Qt5.12.9/5.12.9/gcc_64/mkspecs/features/spec_post.prf \
+		../HyperTerminal_VIsa/.qmake.stash \
 		/opt/Qt5.12.9/5.12.9/gcc_64/mkspecs/features/exclusive_builds.prf \
 		/opt/Qt5.12.9/5.12.9/gcc_64/mkspecs/features/toolchain.prf \
 		/opt/Qt5.12.9/5.12.9/gcc_64/mkspecs/features/default_pre.prf \
@@ -250,8 +259,12 @@ DIST          = /opt/Qt5.12.9/5.12.9/gcc_64/mkspecs/features/spec_pre.prf \
 		/opt/Qt5.12.9/5.12.9/gcc_64/mkspecs/features/exceptions.prf \
 		/opt/Qt5.12.9/5.12.9/gcc_64/mkspecs/features/yacc.prf \
 		/opt/Qt5.12.9/5.12.9/gcc_64/mkspecs/features/lex.prf \
-		../HyperTerminal_VIsa/HyperTerminal_VIsa.pro ../HyperTerminal_VIsa/mainwindow.h ../HyperTerminal_VIsa/main.cpp \
-		../HyperTerminal_VIsa/mainwindow.cpp
+		../HyperTerminal_VIsa/HyperTerminal_VIsa.pro ../HyperTerminal_VIsa/mainwindow.h \
+		../HyperTerminal_VIsa/rfworker.h \
+		../HyperTerminal_VIsa/sigworker.h ../HyperTerminal_VIsa/main.cpp \
+		../HyperTerminal_VIsa/mainwindow.cpp \
+		../HyperTerminal_VIsa/rfworker.cpp \
+		../HyperTerminal_VIsa/sigworker.cpp
 QMAKE_TARGET  = HyperTerminal_VIsa
 DESTDIR       = 
 TARGET        = HyperTerminal_VIsa
@@ -437,6 +450,7 @@ Makefile: ../HyperTerminal_VIsa/HyperTerminal_VIsa.pro /opt/Qt5.12.9/5.12.9/gcc_
 		/opt/Qt5.12.9/5.12.9/gcc_64/mkspecs/features/qt_config.prf \
 		/opt/Qt5.12.9/5.12.9/gcc_64/mkspecs/linux-g++/qmake.conf \
 		/opt/Qt5.12.9/5.12.9/gcc_64/mkspecs/features/spec_post.prf \
+		.qmake.stash \
 		/opt/Qt5.12.9/5.12.9/gcc_64/mkspecs/features/exclusive_builds.prf \
 		/opt/Qt5.12.9/5.12.9/gcc_64/mkspecs/features/toolchain.prf \
 		/opt/Qt5.12.9/5.12.9/gcc_64/mkspecs/features/default_pre.prf \
@@ -632,6 +646,7 @@ Makefile: ../HyperTerminal_VIsa/HyperTerminal_VIsa.pro /opt/Qt5.12.9/5.12.9/gcc_
 /opt/Qt5.12.9/5.12.9/gcc_64/mkspecs/features/qt_config.prf:
 /opt/Qt5.12.9/5.12.9/gcc_64/mkspecs/linux-g++/qmake.conf:
 /opt/Qt5.12.9/5.12.9/gcc_64/mkspecs/features/spec_post.prf:
+.qmake.stash:
 /opt/Qt5.12.9/5.12.9/gcc_64/mkspecs/features/exclusive_builds.prf:
 /opt/Qt5.12.9/5.12.9/gcc_64/mkspecs/features/toolchain.prf:
 /opt/Qt5.12.9/5.12.9/gcc_64/mkspecs/features/default_pre.prf:
@@ -667,8 +682,8 @@ distdir: FORCE
 	@test -d $(DISTDIR) || mkdir -p $(DISTDIR)
 	$(COPY_FILE) --parents $(DIST) $(DISTDIR)/
 	$(COPY_FILE) --parents /opt/Qt5.12.9/5.12.9/gcc_64/mkspecs/features/data/dummy.cpp $(DISTDIR)/
-	$(COPY_FILE) --parents ../HyperTerminal_VIsa/mainwindow.h $(DISTDIR)/
-	$(COPY_FILE) --parents ../HyperTerminal_VIsa/main.cpp ../HyperTerminal_VIsa/mainwindow.cpp $(DISTDIR)/
+	$(COPY_FILE) --parents ../HyperTerminal_VIsa/mainwindow.h ../HyperTerminal_VIsa/rfworker.h ../HyperTerminal_VIsa/sigworker.h $(DISTDIR)/
+	$(COPY_FILE) --parents ../HyperTerminal_VIsa/main.cpp ../HyperTerminal_VIsa/mainwindow.cpp ../HyperTerminal_VIsa/rfworker.cpp ../HyperTerminal_VIsa/sigworker.cpp $(DISTDIR)/
 
 
 clean: compiler_clean 
@@ -700,9 +715,9 @@ compiler_moc_predefs_clean:
 moc_predefs.h: /opt/Qt5.12.9/5.12.9/gcc_64/mkspecs/features/data/dummy.cpp
 	g++ -pipe -g -std=gnu++11 -Wall -W -dM -E -o moc_predefs.h /opt/Qt5.12.9/5.12.9/gcc_64/mkspecs/features/data/dummy.cpp
 
-compiler_moc_header_make_all: moc_mainwindow.cpp
+compiler_moc_header_make_all: moc_mainwindow.cpp moc_rfworker.cpp moc_sigworker.cpp
 compiler_moc_header_clean:
-	-$(DEL_FILE) moc_mainwindow.cpp
+	-$(DEL_FILE) moc_mainwindow.cpp moc_rfworker.cpp moc_sigworker.cpp
 moc_mainwindow.cpp: ../HyperTerminal_VIsa/mainwindow.h \
 		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtWidgets/QMainWindow \
 		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtWidgets/qmainwindow.h \
@@ -810,9 +825,122 @@ moc_mainwindow.cpp: ../HyperTerminal_VIsa/mainwindow.h \
 		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtGui/qtouchdevice.h \
 		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtWidgets/qtabwidget.h \
 		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtGui/qicon.h \
+		../HyperTerminal_VIsa/rfworker.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/QObject \
+		../HyperTerminal_VIsa/sigworker.h \
 		moc_predefs.h \
 		/opt/Qt5.12.9/5.12.9/gcc_64/bin/moc
 	/opt/Qt5.12.9/5.12.9/gcc_64/bin/moc $(DEFINES) --include /home/wangchuan/mcode/01_HyperTerminal_Of_VISA/qt_project/build-HyperTerminal_VIsa-Desktop_Qt_5_12_9_GCC_64bit-Debug/moc_predefs.h -I/opt/Qt5.12.9/5.12.9/gcc_64/mkspecs/linux-g++ -I/home/wangchuan/mcode/01_HyperTerminal_Of_VISA/qt_project/HyperTerminal_VIsa -I/usr/include/ni-visa -I/opt/Qt5.12.9/5.12.9/gcc_64/include -I/opt/Qt5.12.9/5.12.9/gcc_64/include/QtWidgets -I/opt/Qt5.12.9/5.12.9/gcc_64/include/QtGui -I/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore -I. -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../HyperTerminal_VIsa/mainwindow.h -o moc_mainwindow.cpp
+
+moc_rfworker.cpp: ../HyperTerminal_VIsa/rfworker.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/QObject \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qobject.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qobjectdefs.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qnamespace.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qglobal.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qconfig-bootstrapped.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qconfig.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qtcore-config.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qsystemdetection.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qprocessordetection.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qcompilerdetection.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qtypeinfo.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qsysinfo.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qlogging.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qflags.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qatomic.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qbasicatomic.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qatomic_bootstrap.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qgenericatomic.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qatomic_cxx11.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qatomic_msvc.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qglobalstatic.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qmutex.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qnumeric.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qversiontagging.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qobjectdefs_impl.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qstring.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qchar.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qbytearray.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qrefcount.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qarraydata.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qstringliteral.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qstringalgorithms.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qstringview.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qstringbuilder.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qlist.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qalgorithms.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qiterator.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qhashfunctions.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qpair.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qbytearraylist.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qstringlist.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qregexp.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qstringmatcher.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qcoreevent.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qscopedpointer.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qmetatype.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qvarlengtharray.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qcontainerfwd.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qobject_impl.h \
+		moc_predefs.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/bin/moc
+	/opt/Qt5.12.9/5.12.9/gcc_64/bin/moc $(DEFINES) --include /home/wangchuan/mcode/01_HyperTerminal_Of_VISA/qt_project/build-HyperTerminal_VIsa-Desktop_Qt_5_12_9_GCC_64bit-Debug/moc_predefs.h -I/opt/Qt5.12.9/5.12.9/gcc_64/mkspecs/linux-g++ -I/home/wangchuan/mcode/01_HyperTerminal_Of_VISA/qt_project/HyperTerminal_VIsa -I/usr/include/ni-visa -I/opt/Qt5.12.9/5.12.9/gcc_64/include -I/opt/Qt5.12.9/5.12.9/gcc_64/include/QtWidgets -I/opt/Qt5.12.9/5.12.9/gcc_64/include/QtGui -I/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore -I. -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../HyperTerminal_VIsa/rfworker.h -o moc_rfworker.cpp
+
+moc_sigworker.cpp: ../HyperTerminal_VIsa/sigworker.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/QObject \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qobject.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qobjectdefs.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qnamespace.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qglobal.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qconfig-bootstrapped.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qconfig.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qtcore-config.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qsystemdetection.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qprocessordetection.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qcompilerdetection.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qtypeinfo.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qsysinfo.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qlogging.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qflags.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qatomic.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qbasicatomic.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qatomic_bootstrap.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qgenericatomic.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qatomic_cxx11.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qatomic_msvc.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qglobalstatic.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qmutex.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qnumeric.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qversiontagging.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qobjectdefs_impl.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qstring.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qchar.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qbytearray.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qrefcount.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qarraydata.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qstringliteral.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qstringalgorithms.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qstringview.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qstringbuilder.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qlist.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qalgorithms.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qiterator.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qhashfunctions.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qpair.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qbytearraylist.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qstringlist.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qregexp.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qstringmatcher.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qcoreevent.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qscopedpointer.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qmetatype.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qvarlengtharray.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qcontainerfwd.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qobject_impl.h \
+		moc_predefs.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/bin/moc
+	/opt/Qt5.12.9/5.12.9/gcc_64/bin/moc $(DEFINES) --include /home/wangchuan/mcode/01_HyperTerminal_Of_VISA/qt_project/build-HyperTerminal_VIsa-Desktop_Qt_5_12_9_GCC_64bit-Debug/moc_predefs.h -I/opt/Qt5.12.9/5.12.9/gcc_64/mkspecs/linux-g++ -I/home/wangchuan/mcode/01_HyperTerminal_Of_VISA/qt_project/HyperTerminal_VIsa -I/usr/include/ni-visa -I/opt/Qt5.12.9/5.12.9/gcc_64/include -I/opt/Qt5.12.9/5.12.9/gcc_64/include/QtWidgets -I/opt/Qt5.12.9/5.12.9/gcc_64/include/QtGui -I/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore -I. -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../HyperTerminal_VIsa/sigworker.h -o moc_sigworker.cpp
 
 compiler_moc_objc_header_make_all:
 compiler_moc_objc_header_clean:
@@ -937,6 +1065,9 @@ main.o: ../HyperTerminal_VIsa/main.cpp ../HyperTerminal_VIsa/mainwindow.h \
 		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtGui/qtouchdevice.h \
 		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtWidgets/qtabwidget.h \
 		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtGui/qicon.h \
+		../HyperTerminal_VIsa/rfworker.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/QObject \
+		../HyperTerminal_VIsa/sigworker.h \
 		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtWidgets/QApplication \
 		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtWidgets/qapplication.h \
 		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qcoreapplication.h \
@@ -1053,6 +1184,9 @@ mainwindow.o: ../HyperTerminal_VIsa/mainwindow.cpp ../HyperTerminal_VIsa/mainwin
 		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtGui/qtouchdevice.h \
 		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtWidgets/qtabwidget.h \
 		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtGui/qicon.h \
+		../HyperTerminal_VIsa/rfworker.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/QObject \
+		../HyperTerminal_VIsa/sigworker.h \
 		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtWidgets/QWidget \
 		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtWidgets/QLineEdit \
 		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtWidgets/qlineedit.h \
@@ -1082,14 +1216,135 @@ mainwindow.o: ../HyperTerminal_VIsa/mainwindow.cpp ../HyperTerminal_VIsa/mainwin
 		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtWidgets/QMessageBox \
 		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtWidgets/qmessagebox.h \
 		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtWidgets/qdialog.h \
-		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/QByteArray \
 		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/QDateTime \
 		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qdatetime.h \
-		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtGui/QFont
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/QByteArray \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtWidgets/QFileDialog \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtWidgets/qfiledialog.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qdir.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qfileinfo.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/QFile \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/QTextStream \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/QStringList \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/QRegExp \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/QtMath \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qmath.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o mainwindow.o ../HyperTerminal_VIsa/mainwindow.cpp
+
+rfworker.o: ../HyperTerminal_VIsa/rfworker.cpp ../HyperTerminal_VIsa/rfworker.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/QObject \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qobject.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qobjectdefs.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qnamespace.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qglobal.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qconfig-bootstrapped.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qconfig.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qtcore-config.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qsystemdetection.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qprocessordetection.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qcompilerdetection.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qtypeinfo.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qsysinfo.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qlogging.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qflags.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qatomic.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qbasicatomic.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qatomic_bootstrap.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qgenericatomic.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qatomic_cxx11.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qatomic_msvc.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qglobalstatic.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qmutex.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qnumeric.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qversiontagging.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qobjectdefs_impl.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qstring.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qchar.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qbytearray.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qrefcount.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qarraydata.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qstringliteral.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qstringalgorithms.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qstringview.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qstringbuilder.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qlist.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qalgorithms.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qiterator.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qhashfunctions.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qpair.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qbytearraylist.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qstringlist.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qregexp.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qstringmatcher.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qcoreevent.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qscopedpointer.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qmetatype.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qvarlengtharray.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qcontainerfwd.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qobject_impl.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o rfworker.o ../HyperTerminal_VIsa/rfworker.cpp
+
+sigworker.o: ../HyperTerminal_VIsa/sigworker.cpp ../HyperTerminal_VIsa/sigworker.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/QObject \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qobject.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qobjectdefs.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qnamespace.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qglobal.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qconfig-bootstrapped.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qconfig.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qtcore-config.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qsystemdetection.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qprocessordetection.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qcompilerdetection.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qtypeinfo.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qsysinfo.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qlogging.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qflags.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qatomic.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qbasicatomic.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qatomic_bootstrap.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qgenericatomic.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qatomic_cxx11.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qatomic_msvc.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qglobalstatic.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qmutex.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qnumeric.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qversiontagging.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qobjectdefs_impl.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qstring.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qchar.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qbytearray.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qrefcount.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qarraydata.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qstringliteral.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qstringalgorithms.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qstringview.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qstringbuilder.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qlist.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qalgorithms.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qiterator.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qhashfunctions.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qpair.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qbytearraylist.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qstringlist.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qregexp.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qstringmatcher.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qcoreevent.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qscopedpointer.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qmetatype.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qvarlengtharray.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qcontainerfwd.h \
+		/opt/Qt5.12.9/5.12.9/gcc_64/include/QtCore/qobject_impl.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o sigworker.o ../HyperTerminal_VIsa/sigworker.cpp
 
 moc_mainwindow.o: moc_mainwindow.cpp 
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o moc_mainwindow.o moc_mainwindow.cpp
+
+moc_rfworker.o: moc_rfworker.cpp 
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o moc_rfworker.o moc_rfworker.cpp
+
+moc_sigworker.o: moc_sigworker.cpp 
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o moc_sigworker.o moc_sigworker.cpp
 
 ####### Install
 

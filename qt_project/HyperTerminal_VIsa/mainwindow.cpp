@@ -18,34 +18,131 @@
 #include <QStringList>
 #include <QRegExp>
 #include <QtMath>
+#include <QThread>
 
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent),
-      editAddress(nullptr),
-      editCommand(nullptr),
-      editFreq(nullptr),
-      editAmp(nullptr),
-      editOffset(nullptr),
-      btnConnect(nullptr),
-      btnWrite(nullptr),
-      btnRead(nullptr),
-      btnLoadFile(nullptr),
-      btnDownloadWave(nullptr),
-      btnExit(nullptr),
-      defaultRM(VI_NULL),
-      deviceSession(VI_NULL),
-      isConnected(false),
-      rfDefaultRM(VI_NULL),
-      rfDeviceSession(VI_NULL),
-      rfIsConnected(false)
+    : QMainWindow(parent)
 {
     initUi();
+    sigThread = new QThread(this);
+    rfThread  = new QThread(this);
+
+    sigWorker = new SigWorker();
+    rfWorker  = new RFWorker();
+
+    sigWorker->moveToThread(sigThread);
+    rfWorker->moveToThread(rfThread);
+
+    sigThread->start();
+    rfThread->start();
+
+    // ===== UI → Sig线程 =====
+    // 1.信号源-连接-信号与槽
+    {
+        connect(btnConnect, &QPushButton::clicked, this, &MainWindow::onSigConnectClicked);
+        connect(this, &MainWindow::sig_connect, sigWorker, &SigWorker::connectDevice);
+        connect(this, &MainWindow::sig_disconnect, sigWorker, &SigWorker::disconnectDevice);
+        connect(sigWorker, &SigWorker::connectSuccess, this, &MainWindow::onSigConnectSuccess);
+    }
+
+    // 2.信号源-写-信号与槽
+    {
+        connect(btnWrite, &QPushButton::clicked, this, &MainWindow::onSigWriteClicked);
+        connect(this, &MainWindow::sig_write, sigWorker, &SigWorker::writeCmd);
+    }
+
+    // 3.信号源-读-信号与槽
+    {
+        connect(btnRead, &QPushButton::clicked, this, &MainWindow::onSigReadClicked);
+        connect(this, &MainWindow::sig_read, sigWorker, &SigWorker::readCmd);
+    }
+
+    // 4.信号源-波形下载-信号与槽
+    {
+        connect(btnLoadFile, &QPushButton::clicked, this, &MainWindow::onLoadFileClicked);
+        connect(btnDownloadWave, &QPushButton::clicked, this, &MainWindow::onDownloadWaveClicked);
+        connect(this, &MainWindow::sig_downloadWave, sigWorker, &SigWorker::downloadWave);
+    }
+
+    // 5.射频源-连接-信号与槽
+    {
+        connect(rfBtnConnect, &QPushButton::clicked, this, &MainWindow::onRfConnectClicked);
+        connect(this, &MainWindow::rf_connect, rfWorker, &RFWorker::connectDevice);
+        connect(this, &MainWindow::rf_disconnect, rfWorker, &RFWorker::disconnectDevice);
+        connect(rfWorker, &RFWorker::connectSuccess, this, &MainWindow::onRfConnectSuccess);
+    }
+
+    // 6.射频源-写-信号与槽
+    {
+        connect(rfBtnWrite, &QPushButton::clicked, this, &MainWindow::onRFWriteClicked);
+        connect(this, &MainWindow::rf_write, rfWorker, &RFWorker::writeCmd);
+    }
+
+    // 7.射频源-读-信号与槽
+    {
+        connect(rfBtnRead, &QPushButton::clicked, this, &MainWindow::onRFReadClicked);
+        connect(this, &MainWindow::rf_read, rfWorker, &RFWorker::readCmd);
+    }
+
+    // 8.射频源-开启与关闭-信号与槽
+    {
+        connect(rfBtnOutputOn, &QPushButton::clicked, this, &MainWindow::onRFOutputOnClicked);
+        connect(rfBtnOutputOff, &QPushButton::clicked, this, &MainWindow::onRFOutputOffClicked);
+        connect(this, &MainWindow::rf_output, rfWorker, &RFWorker::output);
+    }
+
+    // 9.射频源-配置-信号与槽
+    {
+        connect(rfBtnConfig, &QPushButton::clicked, this, &MainWindow::onRFConfigClicked);
+        connect(this, &MainWindow::rf_config, rfWorker, &RFWorker::config);
+    }
+
+    // ==== 日志信号绑定 ====
+    {
+        connect(sigWorker, &SigWorker::sigLog,
+                this, [=](QString msg){
+            log(LOG_SIG, msg);
+        });
+
+        connect(sigWorker, &SigWorker::sigError,
+                this, [=](QString msg){
+            log(LOG_ERROR, msg);
+        });
+
+        connect(rfWorker, &RFWorker::rfLog,
+                this, [=](QString msg){
+            log(LOG_RF, msg);
+        });
+
+        connect(rfWorker, &RFWorker::rfError,
+                this, [=](QString msg){
+            log(LOG_ERROR, msg);
+        });
+    }
 }
 
 MainWindow::~MainWindow()
 {
+    // ===== 停止 Sig线程 =====
+    if (sigThread) {
+        sigThread->quit();   // 让线程退出事件循环
+        sigThread->wait();   // 等待线程真正结束
+    }
+
+    // ===== 停止 RF线程 =====
+    if (rfThread) {
+        rfThread->quit();
+        rfThread->wait();
+    }
+
+    delete sigWorker;
+    delete rfWorker;
+
     closeVisa();
 }
+
+
+
 
 void MainWindow::initUi()
 {
@@ -82,7 +179,7 @@ void MainWindow::initUi()
     btnRead         = new QPushButton("Read", this);
     btnLoadFile     = new QPushButton("Load File", this);
     btnDownloadWave = new QPushButton("Download Arb", this);
-    btnExit         = new QPushButton("Exit", this);
+
 
     btnWrite->setEnabled(false);
     btnRead->setEnabled(false);
@@ -91,7 +188,8 @@ void MainWindow::initUi()
     QGridLayout *gridSig = new QGridLayout(groupSig);
 
     gridSig->addWidget(labelAddress, 0, 0);
-    gridSig->addWidget(editAddress, 0, 1, 1, 3);
+    gridSig->addWidget(editAddress, 0, 1, 1, 2);
+    gridSig->addWidget(btnConnect, 0, 3);
 
     gridSig->addWidget(labelCommand, 1, 0);
     gridSig->addWidget(editCommand, 1, 1, 1, 3);
@@ -107,12 +205,12 @@ void MainWindow::initUi()
     // 按钮区（放在左侧内部）
     QHBoxLayout *sigBtnLayout = new QHBoxLayout;
 
-    sigBtnLayout->addWidget(btnConnect);
+    // sigBtnLayout->addWidget(btnConnect);
     sigBtnLayout->addWidget(btnWrite);
     sigBtnLayout->addWidget(btnRead);
     sigBtnLayout->addWidget(btnLoadFile);
     sigBtnLayout->addWidget(btnDownloadWave);
-    sigBtnLayout->addWidget(btnExit);
+
 
 
     gridSig->addLayout(sigBtnLayout, 4, 0, 1, 4);
@@ -202,158 +300,57 @@ void MainWindow::initUi()
 
     QVBoxLayout *mainLayout = new QVBoxLayout(central);
     mainLayout->addLayout(topLayout, 3);
-    mainLayout->addWidget(groupLog, 2);
+    mainLayout->addWidget(groupLog, 5);
 
-    // ================= 原有信号源信号槽 =================
-    connect(btnConnect, &QPushButton::clicked, this, &MainWindow::onConnectClicked);
-    connect(btnWrite, &QPushButton::clicked, this, &MainWindow::onWriteClicked);
-    connect(btnRead, &QPushButton::clicked, this, &MainWindow::onReadClicked);
-    connect(btnLoadFile, &QPushButton::clicked, this, &MainWindow::onLoadFileClicked);
-    connect(btnDownloadWave, &QPushButton::clicked, this, &MainWindow::onDownloadWaveClicked);
-    connect(btnExit, &QPushButton::clicked, this, &MainWindow::onExitClicked);
-
-    // ⚠ RF 暂时不绑定逻辑（你要求的）
-    connect(rfBtnConnect, &QPushButton::clicked,this, &MainWindow::onRFConnectClicked);
-    connect(rfBtnWrite, &QPushButton::clicked,this, &MainWindow::onRFWriteClicked);
-    connect(rfBtnRead, &QPushButton::clicked,this, &MainWindow::onRFReadClicked);
-    connect(rfBtnOutputOn, &QPushButton::clicked,
-            this, &MainWindow::onRFOutputOnClicked);
-    connect(rfBtnOutputOff, &QPushButton::clicked,
-            this, &MainWindow::onRFOutputOffClicked);
-    connect(rfBtnConfig, &QPushButton::clicked,
-            this, &MainWindow::onRFConfigClicked);
 }
 
-
-
-void MainWindow::closeVisa()
+void MainWindow::onSigConnectClicked()
 {
-    if (deviceSession != VI_NULL) {
-        viClose(deviceSession);
-        deviceSession = VI_NULL;
+    if (sigConnect == false) {
+        emit sig_connect(editAddress->text());
+    } else if (sigConnect == true) {
+        emit sig_disconnect();
     }
-
-    if (defaultRM != VI_NULL) {
-        viClose(defaultRM);
-        defaultRM = VI_NULL;
-    }
-
-    isConnected = false;
-    btnWrite->setEnabled(false);
-    btnRead->setEnabled(false);
-    btnDownloadWave->setEnabled(false);
-    btnConnect->setText("Connect");
 }
 
-void MainWindow::onConnectClicked()
+void MainWindow::onSigConnectSuccess(bool connected)
 {
-    if (isConnected) {
-        log(LOG_SIG, "Disconnect device.");
-        closeVisa();
-        return;
+    if (connected == true) {
+        sigConnect = true;
+        btnWrite->setEnabled(true);
+        btnRead->setEnabled(true);
+        btnDownloadWave->setEnabled(true);
+        btnConnect->setText("Disconnect");
+    } else if (connected == false) {
+        sigConnect = false;
+        btnConnect->setText("Connect");
     }
-
-    QString address = editAddress->text().trimmed();
-    if (address.isEmpty()) {
-        QMessageBox::warning(this, "Warning", "Address is empty.");
-        log(LOG_ERROR, "Address is empty.");
-        return;
-    }
-
-    ViStatus status = viOpenDefaultRM(&defaultRM);
-    if (status < VI_SUCCESS) {
-        log(LOG_ERROR, QString("viOpenDefaultRM failed: %1").arg(status));
-        closeVisa();
-        return;
-    }
-
-    QByteArray addr = address.toLocal8Bit();
-    status = viOpen(defaultRM, (ViRsrc)addr.data(), VI_NULL, VI_NULL, &deviceSession);
-    if (status < VI_SUCCESS) {
-        log(LOG_ERROR, QString("viOpen failed: %1").arg(status));
-        closeVisa();
-        return;
-    }
-
-    viSetAttribute(deviceSession, VI_ATTR_TMO_VALUE, 3000);
-
-    isConnected = true;
-    btnWrite->setEnabled(true);
-    btnRead->setEnabled(true);
-    btnDownloadWave->setEnabled(true);
-    btnConnect->setText("Disconnect");
-
-    log(LOG_SIG, "Connect success.");
 }
 
-bool MainWindow::sendScpi(const QString &cmd)
+void MainWindow::onSigWriteClicked()
 {
-    if (!isConnected || deviceSession == VI_NULL) {
-        log(LOG_ERROR, "Device not connected.");
-        return false;
-    }
-
-    QByteArray data = cmd.toLocal8Bit();
-    if (!data.endsWith('\n')) {
-        data.append('\n');
-    }
-
-    ViUInt32 writeCount = 0;
-    ViStatus status = viWrite(deviceSession,
-                              (ViBuf)data.data(),
-                              (ViUInt32)data.size(),
-                              &writeCount);
-
-    if (status < VI_SUCCESS) {
-        log(LOG_ERROR, QString("SCPI send failed: %1").arg(status));
-        log(LOG_ERROR, "CMD: " + cmd);
-        return false;
-    }
-
-    log(LOG_SIG, "SCPI >> " + cmd);
-    return true;
-}
-
-void MainWindow::onWriteClicked()
-{
-    QString cmd = editCommand->text().trimmed();
-    if (cmd.isEmpty()) {
-        log(LOG_ERROR, "Command is empty.");
-        return;
-    }
-
-    sendScpi(cmd);
-}
-
-void MainWindow::onReadClicked()
-{
-    if (!isConnected || deviceSession == VI_NULL) {
+    if (!sigConnect) {
         log(LOG_ERROR, "Device not connected.");
         return;
     }
 
-    unsigned char buffer[2048] = {0};
-    ViUInt32 readCount = 0;
+    emit sig_write(editCommand->text());
 
-    ViStatus status = viRead(deviceSession, buffer, sizeof(buffer) - 1, &readCount);
-    if (status < VI_SUCCESS) {
-        if (status == VI_ERROR_TMO) {
-            log(LOG_ERROR, "Read timeout.");
-        } else {
-            log(LOG_ERROR, QString("Read failed: %1").arg(status));
-        }
+    log(LOG_SIG, "Write request sent.");
+}
+
+void MainWindow::onSigReadClicked()
+{
+    if (!sigConnect) {
+        log(LOG_ERROR, "Device not connected.");
         return;
     }
 
-    buffer[readCount] = '\0';
-    QString reply = QString::fromLatin1(reinterpret_cast<const char*>(buffer)).trimmed();
-    log(LOG_SIG, "Read << " + reply);
+    emit sig_read();   // ⭐ 交给线程处理
+
+    log(LOG_SIG, "Read request sent.");
 }
 
-void MainWindow::onExitClicked()
-{
-    close();
-}
 
 bool MainWindow::loadWaveFile(const QString &fileName, QVector<double> &samples)
 {
@@ -413,65 +410,6 @@ QVector<int> MainWindow::convertToDac14(const QVector<double> &samples)
     return out;
 }
 
-bool MainWindow::downloadArbDac(const QVector<int> &points)
-{
-    if (points.size() < 2) {
-        log(LOG_ERROR, "Waveform points must be at least 2.");
-        return false;
-    }
-
-    QStringList list;
-    list.reserve(points.size());
-
-    for (int v : points) {
-        int dac = v;
-        if (dac < 0) dac = 0;
-        if (dac > 16383) dac = 16383;
-        list << QString::number(dac);
-    }
-
-    QString cmd = ":TRACe:DATA:DAC VOLATILE," + list.join(",");
-    return sendScpi(cmd);
-}
-
-bool MainWindow::outputUserWaveform(int channel, double freqHz, double vpp, double offset)
-{
-    QString ch = QString::number(channel);
-
-    if (!sendScpi(QString(":SOURce%1:FUNCtion USER").arg(ch))) {
-        return false;
-    }
-
-    if (!sendScpi(QString(":SOURce%1:FREQuency %2")
-                  .arg(ch)
-                  .arg(freqHz, 0, 'f', 6))) {
-        return false;
-    }
-
-    if (!sendScpi(QString(":SOURce%1:VOLTage:UNIT VPP").arg(ch))) {
-        return false;
-    }
-
-    if (!sendScpi(QString(":SOURce%1:VOLTage %2")
-                  .arg(ch)
-                  .arg(vpp, 0, 'f', 6))) {
-        return false;
-    }
-
-    if (!sendScpi(QString(":SOURce%1:VOLTage:OFFSet %2")
-                  .arg(ch)
-                  .arg(offset, 0, 'f', 6))) {
-        return false;
-    }
-
-    if (!sendScpi(QString(":OUTPut%1 ON").arg(ch))) {
-        return false;
-    }
-
-    log(LOG_SIG, "USER waveform output enabled.");
-    return true;
-}
-
 void MainWindow::onLoadFileClicked()
 {
     QString fileName = QFileDialog::getOpenFileName(
@@ -497,7 +435,7 @@ void MainWindow::onLoadFileClicked()
 
 void MainWindow::onDownloadWaveClicked()
 {
-    if (!isConnected) {
+    if (!sigConnect) {
         log(LOG_ERROR, "Please connect device first.");
         return;
     }
@@ -512,7 +450,7 @@ void MainWindow::onDownloadWaveClicked()
     bool okOffset = false;
 
     double freqHz = editFreq->text().trimmed().toDouble(&okFreq);
-    double vpp = editAmp->text().trimmed().toDouble(&okAmp);
+    double vpp    = editAmp->text().trimmed().toDouble(&okAmp);
     double offset = editOffset->text().trimmed().toDouble(&okOffset);
 
     if (!okFreq || freqHz <= 0.0) {
@@ -530,127 +468,134 @@ void MainWindow::onDownloadWaveClicked()
         return;
     }
 
+    // ⭐ 核心：生成 DAC 数据（仍然在UI线程做）
     QVector<int> dacPoints = convertToDac14(m_samples);
 
-    if (!downloadArbDac(dacPoints)) {
-        log(LOG_ERROR, "Download arb data failed.");
-        return;
-    }
+    // ⭐ 只把“执行”丢给线程
+    emit sig_downloadWave(
+        dacPoints,
+        1,
+        freqHz,
+        vpp,
+        offset
+    );
 
-    if (!outputUserWaveform(1, freqHz, vpp, offset)) {
-        log(LOG_ERROR, "Enable USER waveform failed.");
-        return;
-    }
+    log(LOG_SIG, "Download task sent to worker thread.");
+}
 
-    log(LOG_SIG, QString("Arbitrary waveform downloaded. Freq=%1 Hz, Amp=%2 Vpp, Offset=%3 V")
-                  .arg(freqHz)
-                  .arg(vpp)
-                  .arg(offset));
+
+void MainWindow::closeVisa()
+{
+    if (!sigConnect)
+        return;
+
+    // ⭐ 交给线程去关闭设备
+    emit sig_disconnect();
+
+    sigConnect = false;
+    log(LOG_SIG, "Disconnect request sent.");
 }
 
 void MainWindow::closeVisaRF()
 {
-    if (rfDeviceSession != VI_NULL) {
-        viClose(rfDeviceSession);
-        rfDeviceSession = VI_NULL;
-    }
+    if (!rfIsConnected)
+        return;
 
-    if (rfDefaultRM != VI_NULL) {
-        viClose(rfDefaultRM);
-        rfDefaultRM = VI_NULL;
-    }
+    // ⭐ 让 RF 线程自己关闭
+    emit rf_disconnect();
 
     rfIsConnected = false;
+    log(LOG_RF, "RF disconnect request sent.");
+}
 
-    rfBtnWrite->setEnabled(false);
-    rfBtnRead->setEnabled(false);
-    rfBtnConnect->setText("Connect");
+void MainWindow::onRfConnectClicked()
+{
+    if (rfIsConnected == false) {
+        emit rf_connect(rfEditAddress->text());
+    } else if (rfIsConnected == true) {
+        emit rf_disconnect();
+    }
+}
+
+void MainWindow::onRfConnectSuccess(bool connected)
+{
+    if (connected == true) {
+        rfIsConnected = true;
+        rfBtnConnect->setText("Disconnect");
+        rfBtnWrite->setEnabled(true);
+        rfBtnRead->setEnabled(true);
+        rfBtnOutputOn->setEnabled(true);
+        rfBtnOutputOff->setEnabled(true);
+        rfBtnConfig->setEnabled(true);
+    } else if (connected == false) {
+        rfIsConnected = false;
+        rfBtnConnect->setText("Connect");
+    }
+}
+
+void MainWindow::onRFWriteClicked()
+{
+    if (!rfIsConnected) {
+        log(LOG_ERROR, "Device not connected.");
+        return;
+    }
+
+    emit rf_write(rfEditCommand->text());
+
+    log(LOG_RF, "Write request sent.");
+}
+
+void MainWindow::onRFReadClicked()
+{
+    if (!rfIsConnected) {
+        log(LOG_ERROR, "Device not connected.");
+        return;
+    }
+
+    emit rf_read();   // ⭐ 交给线程处理
+
+    log(LOG_RF, "Read request sent.");
 }
 
 
-
-void MainWindow::onRFConnectClicked()
+void MainWindow::onRFOutputOnClicked()
 {
-    if (rfIsConnected) {
-        log(LOG_RF, "Disconnect RF device.");
-        closeVisaRF();
+    if (!rfIsConnected) {
+        log(LOG_ERROR, "Device not connected.");
         return;
     }
 
-    QString ip = rfEditAddress->text().trimmed();
-    if (ip.isEmpty()) {
-        QMessageBox::warning(this, "Warning", "RF IP is empty.");
-        log(LOG_ERROR, "RF IP is empty.");
-        return;
-    }
-
-    // ⚠ RF 一般用 TCPIP0::IP::INSTR 格式
-    QString address = rfEditAddress->text().trimmed();
-
-    ViStatus status = viOpenDefaultRM(&rfDefaultRM);
-    if (status < VI_SUCCESS) {
-        log(LOG_ERROR, QString("viOpenDefaultRM failed: %1").arg(status));
-        closeVisaRF();
-        return;
-    }
-
-    QByteArray addr = address.toLocal8Bit();
-
-    status = viOpen(rfDefaultRM,
-                    (ViRsrc)addr.data(),
-                    VI_NULL,
-                    VI_NULL,
-                    &rfDeviceSession);
-
-    if (status < VI_SUCCESS) {
-        log(LOG_ERROR, QString("viOpen failed: %1").arg(status));
-        closeVisaRF();
-        return;
-    }
-
-    viSetAttribute(rfDeviceSession, VI_ATTR_TMO_VALUE, 3000);
-
-    rfIsConnected = true;
-
-    rfBtnWrite->setEnabled(true);
-    rfBtnRead->setEnabled(true);
-    rfBtnOutputOn->setEnabled(true);
+    rfBtnOutputOn->setEnabled(false);
     rfBtnOutputOff->setEnabled(true);
-    rfBtnConfig->setEnabled(true);
-    rfBtnConnect->setText("Disconnect");
-
-    log(LOG_RF, "RF Connect success.");
+    emit rf_output(true);
+    log(LOG_RF, "Rf output on.");
 }
 
-bool MainWindow::sendScpiRF(const QString &cmd)
+void MainWindow::onRFOutputOffClicked()
 {
-    if (!rfIsConnected || rfDeviceSession == VI_NULL) {
-        log(LOG_ERROR, "RF device not connected.");
-        return false;
+    if (!rfIsConnected) {
+        log(LOG_ERROR, "Device not connected.");
+        return;
     }
 
-    QByteArray data = cmd.toLocal8Bit();
+    rfBtnOutputOn->setEnabled(true);
+    rfBtnOutputOff->setEnabled(false);
+    emit rf_output(false);
+    log(LOG_RF, "Rf output off.");
+}
 
-    // SCPI 必须以 \n 结尾
-    if (!data.endsWith('\n')) {
-        data.append('\n');
+void MainWindow::onRFConfigClicked()
+{
+    if (!rfIsConnected) {
+        log(LOG_ERROR, "Device not connected.");
+        return;
     }
 
-    ViUInt32 writeCount = 0;
-
-    ViStatus status = viWrite(rfDeviceSession,
-                              (ViBuf)data.data(),
-                              (ViUInt32)data.size(),
-                              &writeCount);
-
-    if (status < VI_SUCCESS) {
-        log(LOG_ERROR, QString("RF SCPI send failed: %1").arg(status));
-        log(LOG_ERROR, "CMD: " + cmd);
-        return false;
-    }
-
-    log(LOG_RF, "RF >> " + cmd);
-    return true;
+    emit rf_config(
+        rfEditFreq->text().toDouble(),
+        rfEditPower->text().toDouble()
+    );
+    log(LOG_RF, "Rf config...");
 }
 
 void MainWindow::appendLog(const QString &msg, const QColor &color)
@@ -680,125 +625,4 @@ void MainWindow::log(LogType type, const QString &msg)
     }
 
     appendLog(msg, color);
-}
-
-void MainWindow::onRFWriteClicked()
-{
-    QString cmd = rfEditCommand->text().trimmed();
-
-    if (cmd.isEmpty()) {
-        log(LOG_ERROR, "Command is empty.");
-        return;
-    }
-
-    sendScpiRF(cmd);
-}
-
-void MainWindow::onRFReadClicked()
-{
-    if (!rfIsConnected || rfDeviceSession == VI_NULL) {
-        log(LOG_ERROR, "RF device not connected.");
-        return;
-    }
-
-    unsigned char buffer[2048] = {0};
-    ViUInt32 readCount = 0;
-
-    ViStatus status = viRead(rfDeviceSession,
-                             buffer,
-                             sizeof(buffer) - 1,
-                             &readCount);
-
-    if (status < VI_SUCCESS) {
-        if (status == VI_ERROR_TMO) {
-            log(LOG_ERROR, "RF Read timeout.");
-        } else {
-            log(LOG_ERROR, QString("RF Read failed: %1").arg(status));
-        }
-        return;
-    }
-
-    buffer[readCount] = '\0';
-
-    QString reply = QString::fromLatin1(
-                        reinterpret_cast<const char*>(buffer))
-                        .trimmed();
-
-    log(LOG_RF, "RF << " + reply);
-}
-
-
-void MainWindow::onRFOutputOnClicked()
-{
-    if (!rfIsConnected) {
-        log(LOG_ERROR, "RF device not connected.");
-        return;
-    }
-
-    if (!sendScpiRF(":OUTP ON")) {
-        log(LOG_ERROR, "RF Output ON failed.");
-        return;
-    }
-
-    log(LOG_RF, "RF Output ON.");
-}
-
-void MainWindow::onRFOutputOffClicked()
-{
-    if (!rfIsConnected) {
-        log(LOG_ERROR, "RF device not connected.");
-        return;
-    }
-
-    if (!sendScpiRF(":OUTP OFF")) {
-        log(LOG_ERROR, "RF Output OFF failed.");
-        return;
-    }
-
-    log(LOG_RF, "RF Output OFF.");
-}
-
-void MainWindow::onRFConfigClicked()
-{
-    if (!rfIsConnected) {
-        log(LOG_ERROR, "RF device not connected.");
-        return;
-    }
-
-    bool okFreq = false;
-    bool okPower = false;
-
-    double freq = rfEditFreq->text().trimmed().toDouble(&okFreq);
-    double power = rfEditPower->text().trimmed().toDouble(&okPower);
-
-    if (!okFreq || freq <= 0) {
-        log(LOG_ERROR, "Invalid frequency.");
-        return;
-    }
-
-    if (!okPower) {
-        log(LOG_ERROR, "Invalid power.");
-        return;
-    }
-
-    log(LOG_RF, "Start RF configuration...");
-
-    // 1️⃣ 查询设备
-    sendScpiRF("*IDN?");
-    onRFReadClicked();
-
-    // 2️⃣ 恢复出厂设置
-    if (!sendScpiRF(":SYST:PRES:TYPE FAC")) return;
-    if (!sendScpiRF(":SYST:PRES")) return;
-
-    // 3️⃣ 设置频率（Hz）
-    if (!sendScpiRF(QString(":FREQ %1").arg(freq, 0, 'f', 0))) return;
-
-    // 4️⃣ 设置功率（dBm）
-    if (!sendScpiRF(QString(":LEV %1").arg(power, 0, 'f', 2))) return;
-
-    // 5️⃣ 打开输出
-    if (!sendScpiRF(":OUTP ON")) return;
-
-    log(LOG_RF, "RF configuration done.");
 }

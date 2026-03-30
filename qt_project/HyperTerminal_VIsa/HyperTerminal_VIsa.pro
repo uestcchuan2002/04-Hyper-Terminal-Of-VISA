@@ -17,10 +17,14 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 SOURCES += \
     main.cpp \
-    mainwindow.cpp
+    mainwindow.cpp \
+    rfworker.cpp \
+    sigworker.cpp
 
 HEADERS += \
-    mainwindow.h
+    mainwindow.h \
+    rfworker.h \
+    sigworker.h
 
 INCLUDEPATH += /usr/include/ni-visa/
 LIBS += /usr/lib/x86_64-linux-gnu/libvisa.so
