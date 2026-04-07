@@ -19,27 +19,26 @@ void RFWorker::connectDevice(QString addr)
         viClose(dev);
         viClose(rm);
         connected = false;
-        emit rfLog("RF disconnected");
+        emit rfLog("[RF] disconnected");
         return;
     }
 
     if (viOpenDefaultRM(&rm) < VI_SUCCESS) {
-        emit rfError("RF RM open failed");
+        emit rfError("[RF] RM open failed");
         return;
     }
 
     QByteArray a = addr.toLocal8Bit();
 
     if (viOpen(rm, a.data(), VI_NULL, VI_NULL, &dev) < VI_SUCCESS) {
-        emit rfError("RF open failed");
+        emit rfError("[RF] open failed");
         return;
     }
 
     connected = true;
-    emit rfLog("RF connected");
+    emit rfLog("[RF] connected");
     emit connectSuccess(connected);
 }
-
 
 void RFWorker::config(double freq, double power)
 {
@@ -49,7 +48,7 @@ void RFWorker::config(double freq, double power)
     send(QString(":LEV %1").arg(power));
     send(":OUTP ON");
 
-    emit rfLog("RF configured");
+    emit rfLog("[RF] configured");
 }
 
 void RFWorker::writeCmd(QString cmd)
@@ -57,7 +56,7 @@ void RFWorker::writeCmd(QString cmd)
     if (!connected) return;
 
     send(cmd);
-    emit rfLog("RF >> " + cmd);
+    emit rfLog("[RF] >> " + cmd);
 }
 
 void RFWorker::readCmd()
@@ -68,25 +67,25 @@ void RFWorker::readCmd()
     ViUInt32 cnt = 0;
 
     if (viRead(dev, (ViBuf)buf, sizeof(buf), &cnt) >= VI_SUCCESS) {
-        emit rfLog("RF << " + QString(buf));
+        emit rfLog("[RF] << " + QString(buf));
     }
 }
 
 void RFWorker::output(bool on)
 {
     if (!connected) {
-        emit rfError("RF not connected");
+        emit rfError("[RF] not connected");
         return;
     }
 
     QString cmd = on ? ":OUTP ON" : ":OUTP OFF";
 
     if (!send(cmd)) {
-        emit rfError("RF output failed");
+        emit rfError("[RF] output failed");
         return;
     }
 
-    emit rfLog(on ? "RF Output ON" : "RF Output OFF");
+    emit rfLog(on ? "[RF] Output ON" : "RF Output OFF");
 }
 
 void RFWorker::disconnectDevice()
@@ -103,6 +102,6 @@ void RFWorker::disconnectDevice()
 
     connected = false;
 
-    emit rfLog("SIG disconnected");
+    emit rfLog("[RF] disconnected");
     emit connectSuccess(connected);
 }

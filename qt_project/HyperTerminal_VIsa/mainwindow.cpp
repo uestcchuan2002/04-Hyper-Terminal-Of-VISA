@@ -4,6 +4,7 @@
 #include <QLineEdit>
 #include <QTextEdit>
 #include <QPushButton>
+#include <QComboBox>
 #include <QLabel>
 #include <QGroupBox>
 #include <QHBoxLayout>
@@ -19,6 +20,7 @@
 #include <QRegExp>
 #include <QtMath>
 #include <QThread>
+#include <QTimer>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -26,15 +28,19 @@ MainWindow::MainWindow(QWidget *parent)
     initUi();
     sigThread = new QThread(this);
     rfThread  = new QThread(this);
+    mixerThread = new QThread(this);
 
     sigWorker = new SigWorker();
     rfWorker  = new RFWorker();
+    mixerWorker = new MixerWorker();
 
     sigWorker->moveToThread(sigThread);
     rfWorker->moveToThread(rfThread);
+    mixerWorker->moveToThread(mixerThread);
 
     sigThread->start();
     rfThread->start();
+    mixerThread->start();
 
     // ===== UI → Sig线程 =====
     // 1.信号源-连接-信号与槽
@@ -97,6 +103,49 @@ MainWindow::MainWindow(QWidget *parent)
         connect(this, &MainWindow::rf_config, rfWorker, &RFWorker::config);
     }
 
+    // 10.混频器
+    {
+        // 端口扫描
+        connect(this, &MainWindow::sigScanPorts, mixerWorker, &MixerWorker::scanPorts);
+        connect(mixerWorker, &MixerWorker::portsUpdated, this, &MainWindow::onPortsUpdated);
+        QTimer *timer = new QTimer(this);
+        connect(timer, &QTimer::timeout, this, [=](){ emit sigScanPorts();});
+        timer->start(2000);
+
+        // 设备连接
+        connect(this, &MainWindow::sigConnectMixer, mixerWorker, &MixerWorker::connectPort);
+        connect(this, &MainWindow::sigDisconnectMixer, mixerWorker, &MixerWorker::disconnectPort);
+        connect(mixBtnConnect, &QPushButton::clicked, this, &MainWindow::onMixBtnConnectClicked);
+        connect(mixerWorker, &MixerWorker::connected, this, [=](bool ok){
+            if (ok == true) {
+                miIsConnected = true;
+                timer->stop();
+                mixBtnConnect->setText("Disconnect");
+                mixBtnSetFreq->setEnabled(true);
+                mixBtnSetDown->setEnabled(true);
+                mixBtnSetUp->setEnabled(true);
+                mixBtnSend->setEnabled(true);
+            } else {
+                miIsConnected = false;
+                timer->start(2000);
+                mixBtnConnect->setText("Connect");
+                mixBtnSetFreq->setEnabled(false);
+                mixBtnSetDown->setEnabled(false);
+                mixBtnSetUp->setEnabled(false);
+                mixBtnSend->setEnabled(false);
+            }
+        }
+        );
+
+        // 指令发送
+        connect(this, &MainWindow::sigSendMixer, mixerWorker, &MixerWorker::sendCommand);
+        connect(this, &MainWindow::sigSetComd, mixerWorker, &MixerWorker::onSetComd);
+        connect(mixBtnSend, &QPushButton::clicked, this, &MainWindow::onMixBtnSendClicked);
+        connect(mixBtnSetFreq, &QPushButton::clicked, this, &MainWindow::onMixBtnSetFreqClicked);
+        connect(mixBtnSetDown, &QPushButton::clicked, this, &MainWindow::onMixBtnSetDownClicked);
+        connect(mixBtnSetUp, &QPushButton::clicked, this, &MainWindow::onMixBtnSetUpClicked);
+    }
+
     // ==== 日志信号绑定 ====
     {
         connect(sigWorker, &SigWorker::sigLog,
@@ -118,6 +167,16 @@ MainWindow::MainWindow(QWidget *parent)
                 this, [=](QString msg){
             log(LOG_ERROR, msg);
         });
+
+         connect(mixerWorker, &MixerWorker::miLog,
+                 this, [=](QString msg){
+             log(LOG_MI, msg);
+         });
+
+         connect(mixerWorker, &MixerWorker::miError,
+                 this, [=](QString msg){
+             log(LOG_ERROR, msg);
+         });
     }
 }
 
@@ -135,14 +194,17 @@ MainWindow::~MainWindow()
         rfThread->wait();
     }
 
+    if (mixerThread) {
+        mixerThread->quit();   // ⭐ 必须
+        mixerThread->wait();   // ⭐ 必须
+    }
+
     delete sigWorker;
     delete rfWorker;
+    delete mixerWorker;
 
     closeVisa();
 }
-
-
-
 
 void MainWindow::initUi()
 {
@@ -160,7 +222,6 @@ void MainWindow::initUi()
     QLabel *labelFreq    = new QLabel("Freq(Hz)", this);
     QLabel *labelAmp     = new QLabel("Amp(Vpp)", this);
     QLabel *labelOffset  = new QLabel("Offset(V)", this);
-
 
     editAddress = new QLineEdit(this);
     editCommand = new QLineEdit(this);
@@ -210,8 +271,6 @@ void MainWindow::initUi()
     sigBtnLayout->addWidget(btnRead);
     sigBtnLayout->addWidget(btnLoadFile);
     sigBtnLayout->addWidget(btnDownloadWave);
-
-
 
     gridSig->addLayout(sigBtnLayout, 4, 0, 1, 4);
 
@@ -284,6 +343,103 @@ void MainWindow::initUi()
     rfGrid->setColumnStretch(3, 1);
     rfGrid->setRowStretch(3, 1);
 
+    // ================= 混频器 =================
+    QGroupBox *groupMixer = new QGroupBox("Mixer", this);
+
+    // ===== Label =====
+    QLabel *mixLabelPort  = new QLabel("COM Port", this);
+    QLabel *mixLabelFreq  = new QLabel("Freq (MHz)", this);
+    QLabel *mixLabelDown  = new QLabel("Down Att (dB)", this);
+    QLabel *mixLabelUp    = new QLabel("Up Att (dB)", this);
+    QLabel *mixLabelCmd   = new QLabel("Command", this);
+
+    // ===== Edit =====
+    mixComboPort = new QComboBox(this);
+    mixEditFreq  = new QLineEdit(this);
+    mixEditIFAtt = new QLineEdit(this);   // Down IF
+    mixEditRFAtt = new QLineEdit(this);   // Down RF
+
+    mixEditUpIF  = new QLineEdit(this);   // Up IF
+    mixEditUpRF  = new QLineEdit(this);   // Up RF
+
+    mixEditCmd   = new QLineEdit(this);
+
+    // ===== 默认值 =====
+
+    mixEditFreq->setText("1000");
+    mixEditIFAtt->setText("10");
+    mixEditRFAtt->setText("10");
+    mixEditUpIF->setText("10");
+    mixEditUpRF->setText("10");
+    mixEditCmd->setText("*IDN?");
+
+    // 👉 限制宽度（更像仪器UI）
+    mixEditIFAtt->setMaximumWidth(60);
+    mixEditRFAtt->setMaximumWidth(60);
+    mixEditUpIF->setMaximumWidth(60);
+    mixEditUpRF->setMaximumWidth(60);
+
+    // ===== Button =====
+    mixBtnConnect = new QPushButton("Connect", this);
+    mixBtnSetFreq = new QPushButton("Set", this);
+    mixBtnSetDown = new QPushButton("Set", this);
+    mixBtnSetUp   = new QPushButton("Set", this);
+    mixBtnSend    = new QPushButton("Send", this);
+
+    // ===== 初始状态 =====
+    mixBtnSetFreq->setEnabled(false);
+    mixBtnSetDown->setEnabled(false);
+    mixBtnSetUp->setEnabled(false);
+    mixBtnSend->setEnabled(false);
+
+    // ===== Layout =====
+    QGridLayout *mixGrid = new QGridLayout(groupMixer);
+
+    // ===== 串口 =====
+    mixGrid->addWidget(mixLabelPort, 0, 0);
+    mixGrid->addWidget(mixComboPort, 0, 1, 1, 2);
+    mixGrid->addWidget(mixBtnConnect, 0, 3);
+
+    // ===== 频率 =====
+    mixGrid->addWidget(mixLabelFreq, 1, 0);
+    mixGrid->addWidget(mixEditFreq, 1, 1);
+    mixGrid->addWidget(new QLabel("(200~1800)", this), 1, 2);
+    mixGrid->addWidget(mixBtnSetFreq, 1, 3);
+
+    // ===== 下变频（带 IF/RF 标签）=====
+    QHBoxLayout *downLayout = new QHBoxLayout;
+    downLayout->addWidget(new QLabel("IF:", this));
+    downLayout->addWidget(mixEditIFAtt);
+    downLayout->addSpacing(10);
+    downLayout->addWidget(new QLabel("RF:", this));
+    downLayout->addWidget(mixEditRFAtt);
+
+    mixGrid->addWidget(mixLabelDown, 2, 0);
+    mixGrid->addLayout(downLayout, 2, 1, 1, 2);
+    mixGrid->addWidget(mixBtnSetDown, 2, 3);
+
+    // ===== 上变频（带 IF/RF 标签）=====
+    QHBoxLayout *upLayout = new QHBoxLayout;
+    upLayout->addWidget(new QLabel("IF:", this));
+    upLayout->addWidget(mixEditUpIF);
+    upLayout->addSpacing(10);
+    upLayout->addWidget(new QLabel("RF:", this));
+    upLayout->addWidget(mixEditUpRF);
+
+    mixGrid->addWidget(mixLabelUp, 3, 0);
+    mixGrid->addLayout(upLayout, 3, 1, 1, 2);
+    mixGrid->addWidget(mixBtnSetUp, 3, 3);
+
+    // ===== 指令发送 =====
+    mixGrid->addWidget(mixLabelCmd, 4, 0);
+    mixGrid->addWidget(mixEditCmd, 4, 1, 1, 2);
+    mixGrid->addWidget(mixBtnSend, 4, 3);
+
+    // ===== 拉伸 =====
+    mixGrid->setColumnStretch(1, 1);
+    mixGrid->setColumnStretch(2, 1);
+    mixGrid->setColumnStretch(3, 1);
+
     // ================= 统一日志区 =================
     QGroupBox *groupLog = new QGroupBox("System Log", this);
 
@@ -295,13 +451,14 @@ void MainWindow::initUi()
 
     // ================= 总布局（左右结构）=================
     QHBoxLayout *topLayout = new QHBoxLayout;
+
     topLayout->addWidget(groupSig, 1);
     topLayout->addWidget(groupRF, 1);
+    topLayout->addWidget(groupMixer, 1);   // ⭐ 新增
 
     QVBoxLayout *mainLayout = new QVBoxLayout(central);
     mainLayout->addLayout(topLayout, 3);
     mainLayout->addWidget(groupLog, 5);
-
 }
 
 void MainWindow::onSigConnectClicked()
@@ -598,6 +755,59 @@ void MainWindow::onRFConfigClicked()
     log(LOG_RF, "Rf config...");
 }
 
+void MainWindow::onPortsUpdated(QStringList ports)
+{
+    mixComboPort->clear();
+    mixComboPort->addItems(ports);
+
+    // 可选：自动选中第一个
+    if (!ports.isEmpty()) {
+        mixComboPort->setCurrentIndex(0);
+    }
+
+    log(LOG_MI, "[Mixer] Ports updated");
+}
+
+void MainWindow::onMixBtnConnectClicked()
+{
+    if (miIsConnected == false) {
+        emit sigConnectMixer(mixComboPort->currentText());
+    } else {
+        emit sigDisconnectMixer();
+    }
+}
+
+void MainWindow::onMixBtnSetFreqClicked()
+{
+    QString freqStr;
+    freqStr =  mixEditFreq->text();
+    emit sigSetComd(0, freqStr);
+}
+
+void MainWindow::onMixBtnSetDownClicked()
+{
+    QString down_if;
+    QString down_rf;
+    down_if = mixEditIFAtt->text();
+    down_rf = mixEditRFAtt->text();
+    emit sigSetComd(1, down_rf + down_if);
+}
+
+void MainWindow::onMixBtnSetUpClicked()
+{
+    QString up_if;
+    QString up_rf;
+    up_if = mixEditIFAtt->text();
+    up_rf = mixEditRFAtt->text();
+    emit sigSetComd(1, up_rf + up_if);
+}
+
+void MainWindow::onMixBtnSendClicked()
+{
+    emit sigSendMixer(mixEditCmd->text());
+}
+
+
 void MainWindow::appendLog(const QString &msg, const QColor &color)
 {
     QString time = QDateTime::currentDateTime().toString("HH:mm:ss");
@@ -621,6 +831,7 @@ void MainWindow::log(LogType type, const QString &msg)
     {
     case LOG_SIG:   color = QColor(0,102,204); break;
     case LOG_RF:    color = QColor(0,153,0); break;
+    case LOG_MI: color = QColor(255, 140, 0); break;  // 橙色
     case LOG_ERROR: color = Qt::red; break;
     }
 

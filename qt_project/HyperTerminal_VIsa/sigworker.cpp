@@ -19,24 +19,24 @@ void SigWorker::connectDevice(QString addr)
         viClose(dev);
         viClose(rm);
         connected = false;
-        emit sigLog("SIG disconnected");
+        emit sigLog("[SIG] disconnected");
         return;
     }
 
     if (viOpenDefaultRM(&rm) < VI_SUCCESS) {
-        emit sigError("SIG RM open failed");
+        emit sigError("[SIG] RM open failed");
         return;
     }
 
     QByteArray a = addr.toLocal8Bit();
 
     if (viOpen(rm, a.data(), VI_NULL, VI_NULL, &dev) < VI_SUCCESS) {
-        emit sigError("SIG open failed");
+        emit sigError("[SIG] open failed");
         return;
     }
 
     connected = true;
-    emit sigLog("SIG connected");
+    emit sigLog("[SIG] connected");
     emit connectSuccess(connected);
 }
 
@@ -45,7 +45,7 @@ void SigWorker::writeCmd(QString cmd)
     if (!connected) return;
 
     send(cmd);
-    emit sigLog("SIG >> " + cmd);
+    emit sigLog("[SIG] >> " + cmd);
 }
 
 void SigWorker::readCmd()
@@ -56,7 +56,7 @@ void SigWorker::readCmd()
     ViUInt32 cnt = 0;
 
     if (viRead(dev, (ViBuf)buf, sizeof(buf), &cnt) >= VI_SUCCESS) {
-        emit sigLog("SIG << " + QString(buf));
+        emit sigLog("[SIG] << " + QString(buf));
     }
 }
 
@@ -67,12 +67,12 @@ void SigWorker::downloadWave(QVector<int> points,
                              double offset)
 {
     if (!connected) {
-        emit sigError("SIG not connected");
+        emit sigError("[SIG] not connected");
         return;
     }
 
     if (points.size() < 2) {
-        emit sigError("Waveform points < 2");
+        emit sigError("[SIG] Waveform points < 2");
         return;
     }
 
@@ -87,11 +87,11 @@ void SigWorker::downloadWave(QVector<int> points,
     QString cmd = ":TRACe:DATA:DAC VOLATILE," + list.join(",");
 
     if (!send(cmd)) {
-        emit sigError("Download DAC failed");
+        emit sigError("[SIG] Download DAC failed");
         return;
     }
 
-    emit sigLog("Waveform downloaded");
+    emit sigLog("[SIG] Waveform downloaded");
 
     // ===== 2️⃣ 设置输出 =====
     QString ch = QString::number(channel);
@@ -103,7 +103,7 @@ void SigWorker::downloadWave(QVector<int> points,
     send(QString(":SOURce%1:VOLTage:OFFSet %2").arg(ch).arg(offset, 0, 'f', 6));
     send(QString(":OUTPut%1 ON").arg(ch));
 
-    emit sigLog("USER waveform output enabled");
+    emit sigLog("[SIG] USER waveform output enabled");
 }
 
 void SigWorker::disconnectDevice()
@@ -120,6 +120,6 @@ void SigWorker::disconnectDevice()
 
     connected = false;
 
-    emit sigLog("SIG disconnected");
+    emit sigLog("[SIG] disconnected");
     emit connectSuccess(connected);
 }

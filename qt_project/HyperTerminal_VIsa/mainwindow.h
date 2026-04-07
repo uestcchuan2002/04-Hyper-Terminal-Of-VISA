@@ -10,11 +10,14 @@ class QPushButton;
 #include "visa.h"
 #include "rfworker.h"
 #include "sigworker.h"
+#include "mixerworker.h"
+#include <QComboBox>
 
 enum LogType
 {
     LOG_SIG,
     LOG_RF,
+    LOG_MI,
     LOG_ERROR
 };
 
@@ -66,12 +69,26 @@ signals:
     void rf_config(double, double);
 // ==== 射频信号源 =====
 
+// ==== 混频器 =====
+private slots:
+    void onPortsUpdated(QStringList ports);
+    void onMixBtnConnectClicked();
+    void onMixBtnSetFreqClicked();
+    void onMixBtnSetDownClicked();
+    void onMixBtnSetUpClicked();
+    void onMixBtnSendClicked();
+private:
+    bool miIsConnected = false;
+signals:
+    void sigScanPorts();
+    void sigConnectMixer(QString port);
+    void sigDisconnectMixer();
+    void sigSendMixer(QString cmd);
+    void sigSetComd(int cmd, QString num);
+// ==== 混频器 =====
+
 private slots:
     void closeVisaRF();
-
-
-
-
 
 private:
     void initUi();
@@ -119,15 +136,33 @@ private:
     QPushButton *rfBtnRead;
     QPushButton *rfBtnConfig;
 
+
+    // ===== Mixer =====
+    QComboBox *mixComboPort;   // 替换 mixEditPort
+    QLineEdit *mixEditFreq;
+    QLineEdit *mixEditIFAtt;
+    QLineEdit *mixEditRFAtt;
+    QLineEdit *mixEditUpIF;
+    QLineEdit *mixEditUpRF;
+    QLineEdit *mixEditCmd;   // ⭐ 新增
+
+    QPushButton *mixBtnConnect;
+    QPushButton *mixBtnSetFreq;
+    QPushButton *mixBtnSetDown;
+    QPushButton *mixBtnSetUp;
+    QPushButton *mixBtnSend;
+
     // ===== 日志 =====
     QTextEdit *logViewer;
 
-    // ===== VISA ====
+    // ===== 设备线程 ====
     QThread *sigThread;
     QThread *rfThread;
+    QThread *mixerThread;
 
     SigWorker *sigWorker;
     RFWorker  *rfWorker;
+    MixerWorker *mixerWorker;
 
 signals:
 
