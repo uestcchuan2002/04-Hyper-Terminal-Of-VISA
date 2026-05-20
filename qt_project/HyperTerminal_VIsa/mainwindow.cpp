@@ -777,13 +777,16 @@ void MainWindow::onMixBtnConnectClicked()
     }
 }
 
+/*混频器频率发送*/
 void MainWindow::onMixBtnSetFreqClicked()
 {
+    /*读取频率编辑栏的数据，并通过信号发送*/
     QString freqStr;
     freqStr =  mixEditFreq->text();
     emit sigSetComd(0, freqStr);
 }
 
+/*混频器下变频*/
 void MainWindow::onMixBtnSetDownClicked()
 {
     QString down_if;
@@ -793,13 +796,14 @@ void MainWindow::onMixBtnSetDownClicked()
     emit sigSetComd(1, down_rf + down_if);
 }
 
+/*混频器上变频*/
 void MainWindow::onMixBtnSetUpClicked()
 {
     QString up_if;
     QString up_rf;
     up_if = mixEditIFAtt->text();
     up_rf = mixEditRFAtt->text();
-    emit sigSetComd(1, up_rf + up_if);
+    emit sigSetComd(2, up_rf + up_if);
 }
 
 void MainWindow::onMixBtnSendClicked()

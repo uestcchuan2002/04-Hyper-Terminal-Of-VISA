@@ -19,18 +19,16 @@ MixerWorker::~MixerWorker()
 // ===== 扫描串口 =====
 void MixerWorker::scanPorts()
 {
-
     QStringList ports;
 
     for (const QSerialPortInfo &info : QSerialPortInfo::availablePorts()) {
+        const QString name = info.portName();
+        const QString path = info.systemLocation();
 
-        QString name = info.portName();   // 例如 "ttyUSB0"
-
-        // ⭐ 只保留 ttyUSB
-        if (!name.startsWith("ttyUSB"))
-            continue;
-
-        ports << "/dev/" + name;
+        if (name.startsWith("ttyUSB") ||
+            name.startsWith("ttyACM")) {
+            ports << path;
+        }
     }
 
     emit portsUpdated(ports);
@@ -43,10 +41,24 @@ void MixerWorker::connectPort(QString portName)
         serial->close();
 
     serial->setPortName(portName);
-    serial->setBaudRate(QSerialPort::Baud115200);
+    /*波特率必须大与等于128000*/
+    if (!serial->setBaudRate(128000)) {
+        emit miError("[Mixer] set baudrate failed: " + serial->errorString());
+    }
 
     if (serial->open(QIODevice::ReadWrite)) {
         emit miLog("[Mixer] connected: " + portName);
+        /*延时100ms，发送01 00 06 00 00 00 进入spi模式*/
+        QTimer::singleShot(100, this, [=]() {
+
+            QByteArray modeCmd = QByteArray::fromHex("010006000000");
+            //测试
+            // QByteArray modeCmd = QByteArray::fromHex("010006000003");
+            //...
+            serial->write(modeCmd);
+            serial->flush();
+            emit miLog("[Mixer] TX mode: 01 00 06 00 00 00");
+        });
         emit connected(true);
     } else {
         emit miError("[Mixer] connect failed!");
@@ -85,26 +97,41 @@ void MixerWorker::onReadyRead()
     if (data.isEmpty())
         return;
 
-    QString str = QString::fromUtf8(data);
+    QString hexStr = QString(data.toHex(' ')).toUpper();
 
-    emit miLog("[Mixer] RX: " + str);
+    emit miLog("[Mixer] RX: " + hexStr);
 }
 
 void MixerWorker::onSetComd(int cmd, QString num)
 {
-    QString temp;
-    switch (cmd) {
-    case 0:
-        temp = "CMD_1 " + num;
-        break;
-    case 1:
-        temp = "CMD_2 " + num.mid(0,2) + " " + num.mid(2, 2);
-        break;
-    case 2:
-        temp = "CMD_2 " + num.mid(0,2) + " " + num.mid(2, 2);
-        break;
+    if (!serial->isOpen()) {
+        emit miError("[Mixer] Serial not open");
+        return;
     }
-    sendCommand(temp);
+
+    bool ok = false;
+    quint16 value = num.toUShort(&ok, 10);
+
+    if (!ok) {
+        emit miError("[Mixer] invalid value: " + num);
+        return;
+    }
+
+    if (cmd < 0 || cmd > 2) {
+        emit miError("[Mixer] invalid cmd");
+        return;
+    }
+
+    QByteArray frame = QByteArray::fromHex("070011000001000A000000030000");
+
+    frame.append(static_cast<char>(cmd & 0xFF));
+    frame.append(static_cast<char>((value >> 8) & 0xFF));
+    frame.append(static_cast<char>(value & 0xFF));
+    // 测试
+    // QByteArray frame = QByteArray::fromHex("070012000001003200FF0004000290000000");
+    serial->write(frame);
+    serial->flush();
+
+    emit miLog(QString("[Mixer] TX raw: %1")
+                   .arg(QString(frame.toHex(' ')).toUpper()));
 }
-
-
